@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import ctypes, pyperclip
-from docx import Document
+from docx import Document, opc
 class CosmicLanguageCodec:
     """
     通用的块字符编解码器 - 支持所有GB18030字符
@@ -334,29 +334,46 @@ text_input.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.BOTH, expand=True)
 # 读取文件函数
 def read_file():
     file_path = filedialog.askopenfilename(
-        filetypes=[("文本文件", "*.txt"), ("Word文档", "*.docx"), ("所有文件", "*.*")]
+        filetypes=[("文本文件", "*.txt"), ("Word文档", "*.docx")]
     )
     if file_path:
         try:
-            doc = Document(file_path)
-            content = []
-            for para in doc.paragraphs:
-                content.append(para.text)
-            text_input.delete(1.0, tk.END)
-            text_input.insert(tk.END, '\n'.join(content))
-            messagebox.showinfo("成功", "文件读取成功！")
+            if file_path.endswith('.txt'):
+                # 读取文本文件
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                text_input.delete(1.0, tk.END)
+                text_input.insert(tk.END, content)
+            elif file_path.endswith('.docx'):
+                # 读取Word文档
+                doc = Document(file_path)
+                content = []
+                for para in doc.paragraphs:
+                    content.append(para.text)
+                content_str = '\n'.join(content)
+                text_input.delete(1.0, tk.END)
+                text_input.insert(tk.END, content_str)
+                content = content_str
+            else:
+                # 其他文件类型尝试按文本读取
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                text_input.delete(1.0, tk.END)
+                text_input.insert(tk.END, content)
+        except opc.exceptions.PackageNotFoundError:
+            messagebox.showerror("错误", "文件内容为空")
         except Exception as e:
-            messagebox.showerror("错误", f"读取文件失败：{str(e)}")
+           messagebox.showerror("错误", f"读取文件失败：{str(e)}")
 coder = CosmicLanguageCodec()
 def translate_text():
     global text_output
-    text = text_input.get()
+    text = text_input.get(1.0, tk.END)
     if text:
         if mode_var.get() == "翻译":
             text_output.config(state=tk.NORMAL)
             text_output.delete(1.0, tk.END)
             text_output.insert(tk.END, coder.encode_text(text))
-            text_output.config(state=tk.DISABLED)
+            text_output.config(state=tk.DISABLED)     
         else:
             text_output.config(state=tk.NORMAL)
             text_output.delete(1.0, tk.END)
@@ -375,7 +392,7 @@ def translate_and_save():
     translate_text()
     save_file()
 def copy_text():
-    pyperclip.copy(text_output.get())
+    pyperclip.copy(text_output.get("1.0", tk.END))
 def copy_and_translate():
     translate_text()
     copy_text()
@@ -400,6 +417,6 @@ mode_TRANSLATE = ttk.Radiobutton(button_frame, text="翻译", variable=mode_var,
 mode_TRANSLATE.pack(side=tk.TOP, padx=10)
 mode_UNTRANSLATE = ttk.Radiobutton(button_frame, text="反翻译", variable=mode_var, value="反翻译")
 mode_UNTRANSLATE.pack(side=tk.TOP, padx=10)
-text_output = tk.Text(root, font=('微软雅黑', 12), width=40, height=10, wrap=tk.NONE, state=tk.DISABLED)
+text_output = tk.Text(root, font=('微软雅黑', 12), width=40, height=1, wrap=tk.NONE, state=tk.DISABLED)
 text_output.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.BOTH, expand=True)
 root.mainloop()
